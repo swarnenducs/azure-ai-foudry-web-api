@@ -112,16 +112,26 @@ provider = build_mock_fabric_provider(
 |------|----------|
 | `test_resolve_thread_scope_prompt_id_always_new_thread` | `prompt_id` → new thread (`None` scope) |
 | `test_resolve_thread_scope_thread_name_without_prompt` | `thread_name` scoped as `{agent_id}:{thread_name}` |
-| `test_ask_with_prompt_id_routes_sales_agent_and_formats_response` | End-to-end service with rule routing + structured `data` |
+| `test_ask_with_prompt_id_parses_fabric_json_into_pydantic_model` | End-to-end service with rule routing + structured `data` |
 | `test_ask_without_prompt_uses_thread_name` | LLM routing path + thread reuse |
-| `test_ask_raises_when_routing_fails` | Error when no agent can be resolved |
+| `test_ask_raises_not_found_when_routing_fails_without_prompt` | `agent_unresolved` when no agent can be resolved |
+| `test_ask_raises_not_found_for_unknown_prompt_id` | `unknown_prompt_id` for missing prompt |
+| `test_ask_raises_not_found_when_fabric_returns_404` | `fabric_resource_not_found` when Fabric upstream returns 404 |
 | `test_ask_raises_on_empty_message` | Validation error |
-| `test_response_formatter_json_path` | JSON reply → Pydantic without LLM |
+| `test_json_formatter_raises_format_mismatch_for_non_json` | `invalid_json` format mismatch |
+| `test_json_formatter_raises_schema_mismatch` | `schema_mismatch` with Pydantic `validation_errors` |
+| `test_ask_raises_format_mismatch_when_fabric_returns_non_json` | End-to-end format mismatch from Fabric reply |
 
 ### API (`test_fabric_api.py`)
 
 - `POST /api/fabric/chat` returns 200 with structured body
-- Service errors map to **502**
+- `unknown_prompt_id` → **404** (`fabric_not_found`)
+- `agent_unresolved` → **400** (`fabric_not_found`)
+- `fabric_resource_not_found` → **502** (`fabric_not_found`)
+- Format mismatch → **422** (`fabric_response_format_mismatch`)
+- Other service errors → **502** (plain `detail` string)
+
+See [Fabric-flow.md — Error responses](Fabric-flow.md#error-responses) for the full HTTP mapping table and example payloads.
 
 ---
 
@@ -213,7 +223,7 @@ async def test_ask_finance_agent_formats_structured_response(
     agent_registry,
 ) -> None:
     from src.routing.rule_router import RuleBasedAgentRouter
-    from src.services.fabric_response_formatter import LangChainFabricResponseFormatter
+    from src.services.fabric_response_formatter import PydanticJsonFabricResponseFormatter
     from tests.support.fabric_mocks import build_mock_fabric_provider
 
     provider = build_mock_fabric_provider(
@@ -224,7 +234,7 @@ async def test_ask_finance_agent_formats_structured_response(
         provider=provider,
         registry=agent_registry,
         router=RuleBasedAgentRouter(agent_registry),
-        response_formatter=LangChainFabricResponseFormatter(Settings()),
+        response_formatter=PydanticJsonFabricResponseFormatter(),
     )
 
     result = await service.ask(

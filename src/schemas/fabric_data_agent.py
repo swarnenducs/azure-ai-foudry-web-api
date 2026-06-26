@@ -38,7 +38,7 @@ class FabricDataAgentResponse(BaseModel):
         description="How the agent was chosen: rule or llm",
     )
     data: dict[str, Any] = Field(
-        description="Structured output validated against the agent response_class model",
+        description="Fabric JSON validated against the agent response_class from the registry",
     )
     prompt_id: str | None = None
     thread_name: str | None = None

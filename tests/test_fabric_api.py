@@ -70,6 +70,102 @@ def test_fabric_chat_endpoint_returns_structured_response(fabric_client: TestCli
     assert body["prompt_id"] == "sales-q1-report"
 
 
+def test_fabric_chat_endpoint_maps_not_found_to_404(fabric_client: TestClient) -> None:
+    from src.services.fabric_errors import FabricNotFoundError
+
+    mock_service = fabric_client._mock_service  # type: ignore[attr-defined]
+    mock_service.ask = AsyncMock(
+        side_effect=FabricNotFoundError(
+            "Fabric agent not found: unknown prompt_id 'missing-prompt'",
+            reason="unknown_prompt_id",
+            prompt_id="missing-prompt",
+        )
+    )
+
+    response = fabric_client.post(
+        "/api/fabric/chat",
+        json={"message": "Hello", "prompt_id": "missing-prompt"},
+    )
+
+    assert response.status_code == 404
+    detail = response.json()["detail"]
+    assert detail["error"] == "fabric_not_found"
+    assert detail["reason"] == "unknown_prompt_id"
+    assert detail["prompt_id"] == "missing-prompt"
+
+
+def test_fabric_chat_endpoint_maps_agent_unresolved_to_400(fabric_client: TestClient) -> None:
+    from src.services.fabric_errors import FabricNotFoundError
+
+    mock_service = fabric_client._mock_service  # type: ignore[attr-defined]
+    mock_service.ask = AsyncMock(
+        side_effect=FabricNotFoundError(
+            "Fabric agent not found: could not resolve agent from request.",
+            reason="agent_unresolved",
+        )
+    )
+
+    response = fabric_client.post(
+        "/api/fabric/chat",
+        json={"message": "Hello"},
+    )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert detail["error"] == "fabric_not_found"
+    assert detail["reason"] == "agent_unresolved"
+
+
+def test_fabric_chat_endpoint_maps_upstream_not_found_to_502(fabric_client: TestClient) -> None:
+    from src.services.fabric_errors import FabricNotFoundError
+
+    mock_service = fabric_client._mock_service  # type: ignore[attr-defined]
+    mock_service.ask = AsyncMock(
+        side_effect=FabricNotFoundError(
+            "Fabric agent not found at configured URL for 'sales-agent'",
+            reason="fabric_resource_not_found",
+            agent_id="sales-agent",
+        )
+    )
+
+    response = fabric_client.post(
+        "/api/fabric/chat",
+        json={"message": "Hello", "prompt_id": "sales-q1-report"},
+    )
+
+    assert response.status_code == 502
+    detail = response.json()["detail"]
+    assert detail["error"] == "fabric_not_found"
+    assert detail["reason"] == "fabric_resource_not_found"
+    assert detail["agent_id"] == "sales-agent"
+
+
+def test_fabric_chat_endpoint_maps_format_mismatch_to_422(fabric_client: TestClient) -> None:
+    from src.services.fabric_errors import FabricResponseFormatMismatchError
+
+    mock_service = fabric_client._mock_service  # type: ignore[attr-defined]
+    mock_service.ask = AsyncMock(
+        side_effect=FabricResponseFormatMismatchError(
+            "Fabric response format mismatch: expected JSON for SalesAgentResponse",
+            agent_id="sales-agent",
+            response_class="SalesAgentResponse",
+            reason="invalid_json",
+        )
+    )
+
+    response = fabric_client.post(
+        "/api/fabric/chat",
+        json={"message": "Hello", "prompt_id": "sales-q1-report"},
+    )
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail["error"] == "fabric_response_format_mismatch"
+    assert detail["reason"] == "invalid_json"
+    assert detail["agent_id"] == "sales-agent"
+    assert detail["response_class"] == "SalesAgentResponse"
+
+
 def test_fabric_chat_endpoint_maps_service_errors_to_502(fabric_client: TestClient) -> None:
     from src.services.fabric_data_agent_service import FabricDataAgentInvocationError
 

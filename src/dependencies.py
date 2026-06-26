@@ -8,7 +8,6 @@ from src.config import Settings, get_settings
 from src.services.agent_service import AgentService
 from src.services.fabric_data_agent_provider import FabricDataAgentProvider
 from src.services.fabric_data_agent_service import FabricDataAgentService
-from src.services.fabric_response_formatter import LangChainFabricResponseFormatter
 from src.services.foundry_client import FoundryClientProvider
 
 logger = logging.getLogger(__name__)

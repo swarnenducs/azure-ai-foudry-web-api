@@ -25,7 +25,7 @@ uv run pytest -v
 
 - `GET /health`
 - `POST /api/chat`
-- `POST /api/fabric/chat` — routes to a Fabric Data Agent via rule, LLM, or hybrid routing
+- `POST /api/fabric/chat` — routes to a Fabric Data Agent via rule, LLM, or hybrid routing (see [Fabric-flow.md — Error responses](Fabric-flow.md#error-responses) for HTTP error mapping)
 - `POST /api/sessions` (hosted agents)
 - `DELETE /api/sessions/{session_id}`
 

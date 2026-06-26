@@ -18,6 +18,10 @@ from src.services.fabric_data_agent_service import (
     FabricDataAgentInvocationError,
     FabricDataAgentService,
 )
+from src.services.fabric_errors import (
+    FabricNotFoundError,
+    FabricResponseFormatMismatchError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +35,12 @@ router = APIRouter(
 @router.post(
     "/chat",
     response_model=FabricDataAgentResponse,
-    responses={502: {"model": ErrorResponse}},
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid Fabric chat request"},
+        404: {"model": ErrorResponse, "description": "Unknown Fabric agent or prompt"},
+        422: {"model": ErrorResponse, "description": "Fabric response format mismatch"},
+        502: {"model": ErrorResponse, "description": "Fabric upstream failure"},
+    },
 )
 async def fabric_chat(
     body: FabricDataAgentRequest,
@@ -58,6 +67,33 @@ async def fabric_chat(
             prompt_id=body.prompt_id,
             thread_name=body.thread_name,
         )
+    except FabricNotFoundError as exc:
+        logger.error(
+            "Fabric agent not found",
+            extra={
+                "reason": exc.reason,
+                "prompt_id": exc.prompt_id,
+                "agent_id": exc.agent_id,
+                "http_status_code": exc.http_status_code,
+            },
+        )
+        raise HTTPException(
+            status_code=exc.http_status_code,
+            detail=exc.to_detail(),
+        ) from exc
+    except FabricResponseFormatMismatchError as exc:
+        logger.error(
+            "Fabric response format mismatch",
+            extra={
+                "agent_id": exc.agent_id,
+                "response_class": exc.response_class,
+                "reason": exc.reason,
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.to_detail(),
+        ) from exc
     except FabricDataAgentInvocationError as exc:
         logger.error("Fabric Data Agent invocation failed", extra={"error": str(exc)})
         raise HTTPException(

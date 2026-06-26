@@ -9,6 +9,7 @@ import yaml
 from src.config import Settings
 from src.schemas.fabric.base import FabricAgentResponseBase
 from src.schemas.fabric.loader import resolve_response_class
+from src.services.fabric_errors import FabricNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,11 @@ class AgentRegistry:
     def get_agent(self, agent_id: str) -> AgentConfig:
         agent = self._agents.get(agent_id)
         if agent is None:
-            raise KeyError(f"Unknown agent_id: {agent_id}")
+            raise FabricNotFoundError(
+                f"Fabric agent not found: unknown agent_id '{agent_id}'",
+                reason="unknown_agent_id",
+                agent_id=agent_id,
+            )
         return agent
 
     def get_agent_for_prompt(self, prompt_id: str) -> str | None:

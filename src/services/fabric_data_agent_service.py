@@ -8,7 +8,12 @@ from src.routing.protocols import AgentRouter
 from src.routing.registry import AgentRegistry
 from src.schemas.fabric_data_agent import FabricDataAgentResponse
 from src.services.fabric_data_agent_provider import FabricDataAgentProvider
-from src.services.fabric_response_formatter import LangChainFabricResponseFormatter
+from src.services.fabric_errors import (
+    FabricNotFoundError,
+    FabricResponseFormatMismatchError,
+    is_fabric_upstream_not_found,
+)
+from src.services.fabric_response_formatter import PydanticJsonFabricResponseFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +48,7 @@ class FabricDataAgentService:
         provider: FabricDataAgentProvider,
         registry: AgentRegistry,
         router: AgentRouter,
-        response_formatter: LangChainFabricResponseFormatter,
+        response_formatter: PydanticJsonFabricResponseFormatter,
     ) -> None:
         self._settings = settings
         self._provider = provider
@@ -64,9 +69,16 @@ class FabricDataAgentService:
 
         decision = await self._router.resolve(message=question, prompt_id=prompt_id)
         if decision is None:
-            raise FabricDataAgentInvocationError(
-                "Could not resolve a Fabric Data Agent. "
-                "Provide a valid prompt_id or enable llm/hybrid routing."
+            if prompt_id:
+                raise FabricNotFoundError(
+                    f"Fabric agent not found: unknown prompt_id '{prompt_id}'",
+                    reason="unknown_prompt_id",
+                    prompt_id=prompt_id,
+                )
+            raise FabricNotFoundError(
+                "Fabric agent not found: could not resolve agent from request. "
+                "Provide a valid prompt_id or enable llm/hybrid routing.",
+                reason="agent_unresolved",
             )
 
         agent = self._registry.get_agent(decision.agent_id)
@@ -131,10 +143,14 @@ class FabricDataAgentService:
             )
             reply = _extract_assistant_reply(messages)
 
-            structured = await self._response_formatter.format(
-                raw_reply=reply,
-                response_class=agent.response_class,
-            )
+            try:
+                structured = await self._response_formatter.format(
+                    raw_reply=reply,
+                    response_class=agent.response_class,
+                    agent_id=agent.id,
+                )
+            except FabricResponseFormatMismatchError:
+                raise
 
             try:
                 await client.beta.threads.delete(thread_id=thread["id"])
@@ -163,11 +179,19 @@ class FabricDataAgentService:
                 },
             )
             return result
+        except FabricResponseFormatMismatchError:
+            raise
+        except FabricNotFoundError:
+            raise
         except FabricDataAgentInvocationError:
             raise
-        except KeyError as exc:
-            raise FabricDataAgentInvocationError(str(exc)) from exc
         except Exception as exc:
+            if is_fabric_upstream_not_found(exc):
+                raise FabricNotFoundError(
+                    f"Fabric agent not found at configured URL for '{agent.id}'",
+                    reason="fabric_resource_not_found",
+                    agent_id=agent.id,
+                ) from exc
             logger.exception("Unexpected error during Fabric Data Agent invoke")
             raise FabricDataAgentInvocationError(str(exc)) from exc
 

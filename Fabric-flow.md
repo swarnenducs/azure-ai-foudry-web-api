@@ -33,7 +33,7 @@ flowchart TB
     Router --> Registry[AgentRegistry YAML]
     Service --> Provider[FabricDataAgentProvider]
     Provider --> Fabric["Fabric Data Agent (OpenAI-compatible URL)"]
-    Service --> Formatter[LangChainFabricResponseFormatter]
+    Service --> Formatter[PydanticJsonFabricResponseFormatter]
     Formatter --> Pydantic[Agent-specific Pydantic model]
     Service --> Response[FabricDataAgentResponse]
 ```
@@ -89,6 +89,107 @@ flowchart TB
 | `response_class` | Pydantic model used for `data` |
 | `routing_method` | `rule` or `llm` |
 | `data` | Validated structured output |
+
+### Error responses
+
+`POST /api/fabric/chat` maps domain errors to HTTP status codes. Each error returns a structured `detail` object (not a plain string) so clients can branch on `error` and `reason`.
+
+**Implementation:** `src/services/fabric_errors.py` · **HTTP mapping:** `src/routers/fabric_data_agent.py`
+
+#### Status code summary
+
+| HTTP | When | `detail.error` |
+|------|------|----------------|
+| **400** | Request cannot be routed to any agent (no `prompt_id` and routing mode cannot resolve an agent) | `fabric_not_found` |
+| **404** | Unknown `prompt_id` or `agent_id` in `agent_registry.yaml` | `fabric_not_found` |
+| **422** | Fabric returned a reply that is not valid JSON or does not match the agent's `response_class` | `fabric_response_format_mismatch` |
+| **502** | Fabric upstream failure: timeout, run failed, unreachable agent URL (upstream 404), or other invocation errors | `fabric_not_found` (upstream 404) or plain `detail` string (other failures) |
+
+#### `fabric_not_found` — by `reason`
+
+| `reason` | HTTP | Client action |
+|----------|------|---------------|
+| `unknown_prompt_id` | **404** | Fix or register the `prompt_id` in `config/agent_registry.yaml` |
+| `unknown_agent_id` | **404** | Fix registry — referenced agent does not exist |
+| `agent_unresolved` | **400** | Send a valid `prompt_id`, or enable `llm` / `hybrid` routing |
+| `fabric_resource_not_found` | **502** | Ops/config issue — agent URL in registry is wrong or Fabric resource was deleted |
+
+**Example — unknown prompt (404):**
+
+```json
+{
+  "detail": {
+    "error": "fabric_not_found",
+    "message": "Fabric agent not found: unknown prompt_id 'missing-prompt'",
+    "reason": "unknown_prompt_id",
+    "prompt_id": "missing-prompt"
+  }
+}
+```
+
+**Example — agent unresolved (400):**
+
+```json
+{
+  "detail": {
+    "error": "fabric_not_found",
+    "message": "Fabric agent not found: could not resolve agent from request. Provide a valid prompt_id or enable llm/hybrid routing.",
+    "reason": "agent_unresolved"
+  }
+}
+```
+
+**Example — upstream Fabric 404 (502):**
+
+```json
+{
+  "detail": {
+    "error": "fabric_not_found",
+    "message": "Fabric agent not found at configured URL for 'sales-agent'",
+    "reason": "fabric_resource_not_found",
+    "agent_id": "sales-agent"
+  }
+}
+```
+
+#### `fabric_response_format_mismatch` — by `reason`
+
+| `reason` | Meaning |
+|----------|---------|
+| `invalid_json` | Fabric reply was not parseable JSON (or a ` ```json ` block) |
+| `schema_mismatch` | JSON parsed but failed Pydantic validation for the agent's `response_class` |
+
+**Example — schema mismatch (422):**
+
+```json
+{
+  "detail": {
+    "error": "fabric_response_format_mismatch",
+    "message": "Fabric response format mismatch: JSON does not match SalesAgentResponse",
+    "agent_id": "sales-agent",
+    "response_class": "SalesAgentResponse",
+    "reason": "schema_mismatch",
+    "validation_errors": [
+      {
+        "type": "float_parsing",
+        "loc": ["total_revenue"],
+        "msg": "Input should be a valid number",
+        "input": "not-a-number"
+      }
+    ]
+  }
+}
+```
+
+#### Other invocation failures (502)
+
+Timeouts, non-`completed` Fabric run status, and unexpected errors return **502** with a plain string `detail`:
+
+```json
+{
+  "detail": "Fabric Data Agent request timed out after 120 seconds"
+}
+```
 
 ---
 
@@ -190,15 +291,24 @@ Timeout is controlled by `FABRIC_QUERY_TIMEOUT` (default `120` seconds).
 
 ---
 
-### Step 7 — Format structured response
+### Step 7 — Validate Fabric JSON into Pydantic model
 
 **File:** `src/services/fabric_response_formatter.py`
 
-The raw Fabric `reply` is converted into the agent's Pydantic `response_class`:
+Fabric is expected to return **JSON** matching the agent's `response_class` from `agent_registry.yaml`:
 
-1. **JSON fast-path** — if the reply is JSON (or inside a ` ```json ` block), validate directly with the model.
-2. **LLM fallback** — if not JSON and routing LLM is configured, LangChain `with_structured_output(response_class)` extracts fields.
-3. **Minimal fallback** — if no LLM is configured, return `{ "answer": "<raw reply>" }` plus model defaults.
+1. Extract JSON from the raw Fabric reply (plain JSON or a ` ```json ` code block).
+2. Validate with the mapped Pydantic model (e.g. `SalesAgentResponse`).
+3. Return `data` as `model_dump()` — no LLM involved.
+
+| Field | Source |
+|-------|--------|
+| `reply` | Raw text from Fabric (unchanged) |
+| `data` | Parsed + validated JSON per agent `response_class` |
+
+If Fabric does not return valid JSON for that model, the API returns **422** with `fabric_response_format_mismatch` (see [Error responses](#error-responses)).
+
+> **LLM is routing-only** — used only in `llm` / `hybrid` modes to pick `agent_id`. It never calls Fabric and never shapes the response.
 
 ---
 
@@ -212,7 +322,7 @@ Build `FabricDataAgentResponse` with:
 - `data` — `structured.model_dump()`
 - `agent_id`, `response_class`, `routing_method`, `prompt_id`, `thread_name`
 
-Errors from Fabric are returned as **502 Bad Gateway** with a `detail` message.
+Errors are mapped to HTTP status codes in the router — see [Error responses](#error-responses) for the full table (`400`, `404`, `422`, `502`).
 
 ---
 
@@ -225,7 +335,7 @@ On application start (when `config/agent_registry.yaml` exists or `FABRIC_DATA_A
 1. Load `AgentRegistry` from YAML/JSON.
 2. Build `AgentRouter` from `routing.mode`.
 3. Initialize `FabricDataAgentProvider` (credential only).
-4. Create `LangChainFabricResponseFormatter`.
+4. Create `PydanticJsonFabricResponseFormatter`.
 5. Register `/api/fabric/chat` route.
 
 `GET /health` reports `fabric_data_agent_ready`, `fabric_routing_mode`, and `fabric_agent_count`.
@@ -241,8 +351,8 @@ On application start (when `config/agent_registry.yaml` exists or `FABRIC_DATA_A
 | `AGENT_REGISTRY_PATH` | Path to registry file (default: `config/agent_registry.yaml`) |
 | `FABRIC_ROUTING_MODE` | Override YAML routing mode: `rule`, `llm`, `hybrid` |
 | `FABRIC_QUERY_TIMEOUT` | Max seconds to wait for Fabric (default: `120`) |
-| `ROUTING_LLM_ENDPOINT` | Azure OpenAI endpoint — required for `llm` / `hybrid` |
-| `ROUTING_LLM_DEPLOYMENT` | Deployment name for routing/formatting LLM |
+| `ROUTING_LLM_ENDPOINT` | Azure OpenAI endpoint — required for `llm` / `hybrid` routing only |
+| `ROUTING_LLM_DEPLOYMENT` | Deployment name for routing LLM |
 | `ROUTING_LLM_API_VERSION` | API version (default: `2024-10-21`) |
 | `FABRIC_DATA_AGENT_URL` | Legacy single-agent fallback if registry file is missing |
 
@@ -372,7 +482,8 @@ curl -X POST http://localhost:8000/api/fabric/chat \
 | `src/routers/fabric_data_agent.py` | HTTP endpoint |
 | `src/services/fabric_data_agent_service.py` | Orchestration, thread logic, Fabric invoke |
 | `src/services/fabric_data_agent_provider.py` | Auth, OpenAI client, Fabric threads |
-| `src/services/fabric_response_formatter.py` | Raw reply → Pydantic `data` |
+| `src/services/fabric_response_formatter.py` | Fabric JSON → per-agent Pydantic `data` |
+| `src/services/fabric_errors.py` | `FabricNotFoundError`, `FabricResponseFormatMismatchError`, HTTP reason mapping |
 | `src/routing/registry.py` | Load YAML, resolve agents and prompts |
 | `src/routing/factory.py` | Build rule / llm / hybrid router |
 | `src/schemas/fabric/` | Base + per-agent response models |
@@ -400,7 +511,7 @@ curl -X POST http://localhost:8000/api/fabric/chat \
 |-------------|-----------------|------|
 | Local (`ENVIRONMENT=development`, no `WEBSITE_SITE_NAME`) | `DefaultAzureCredential` | `src/services/fabric_data_agent_provider.py` |
 | Azure Web App / production | `ManagedIdentityCredential` | `src/services/fabric_data_agent_provider.py` |
-| LLM routing / response formatting (local) | `DefaultAzureCredential` | `src/routing/llm_router.py`, `src/services/fabric_response_formatter.py` |
+| LLM routing (local) | `DefaultAzureCredential` | `src/routing/llm_router.py` |
 
 The Fabric Data Agent provider uses the **async** client:
 
