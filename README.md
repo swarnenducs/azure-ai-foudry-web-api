@@ -52,7 +52,7 @@ Example request:
 
 For `llm` / `hybrid` modes, set `ROUTING_LLM_ENDPOINT` and `ROUTING_LLM_DEPLOYMENT`.
 
-**Docs:** [Fabric-flow.md](Fabric-flow.md) (architecture & adding agents) · [test-fabric.md](test-fabric.md) (testing guide) · [infra/README.md](infra/README.md) (Terraform)
+**Docs:** [Fabric-flow.md](Fabric-flow.md) (architecture & adding agents) · [test-fabric.md](test-fabric.md) (testing guide) · [infra/README.md](infra/README.md) (Terraform) · [GIT-PRACTICES.md](GIT-PRACTICES.md) (Git workflow & merge process)
 
 ## Azure Web App
 
