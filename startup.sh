@@ -20,7 +20,7 @@ fi
 
 echo "Starting FastAPI from ${APP_ROOT} on port ${PORT} using ${PYTHON}"
 
-exec "${PYTHON}" -m uvicorn app.main:app \
+exec "${PYTHON}" -m uvicorn src.main:app \
   --host 0.0.0.0 \
   --port "${PORT}" \
   --proxy-headers \

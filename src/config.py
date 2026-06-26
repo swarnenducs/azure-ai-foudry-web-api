@@ -33,6 +33,54 @@ class Settings(BaseSettings):
         description="Optional shared secret for protecting /api routes",
     )
 
+    fabric_tenant_id: str | None = Field(
+        default=None,
+        alias="FABRIC_TENANT_ID",
+        description="Azure Entra tenant ID for Fabric Data Agent auth",
+    )
+    fabric_data_agent_url: str | None = Field(
+        default=None,
+        alias="FABRIC_DATA_AGENT_URL",
+        description="Legacy single Fabric Data Agent URL (use agent_registry.yaml instead)",
+    )
+    fabric_query_timeout: int = Field(
+        default=120,
+        alias="FABRIC_QUERY_TIMEOUT",
+        description="Max seconds to wait for a Fabric Data Agent response",
+    )
+    agent_registry_path: str = Field(
+        default="config/agent_registry.yaml",
+        alias="AGENT_REGISTRY_PATH",
+        description="YAML/JSON file mapping prompt_id to agent_id and agent catalog",
+    )
+    fabric_routing_mode: str | None = Field(
+        default=None,
+        alias="FABRIC_ROUTING_MODE",
+        description="Override routing mode: rule, llm, or hybrid",
+    )
+    routing_llm_endpoint: str | None = Field(
+        default=None,
+        alias="ROUTING_LLM_ENDPOINT",
+        description="Azure OpenAI endpoint for LLM-based agent routing",
+    )
+    routing_llm_deployment: str | None = Field(
+        default=None,
+        alias="ROUTING_LLM_DEPLOYMENT",
+        description="Azure OpenAI deployment name for routing LLM",
+    )
+    routing_llm_api_version: str = Field(
+        default="2024-10-21",
+        alias="ROUTING_LLM_API_VERSION",
+    )
+
+    @property
+    def fabric_enabled(self) -> bool:
+        from pathlib import Path
+
+        if Path(self.agent_registry_path).is_file():
+            return True
+        return bool(self.fabric_data_agent_url)
+
     @property
     def is_production(self) -> bool:
         return self.environment.lower() in {"production", "prod"}

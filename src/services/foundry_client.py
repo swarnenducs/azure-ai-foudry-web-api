@@ -5,7 +5,7 @@ from azure.ai.projects.aio import AIProjectClient
 from azure.identity.aio import DefaultAzureCredential, ManagedIdentityCredential
 from openai import AsyncOpenAI
 
-from app.config import Settings
+from src.config import Settings
 
 logger = logging.getLogger(__name__)
 

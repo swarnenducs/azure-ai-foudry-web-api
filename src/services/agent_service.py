@@ -5,9 +5,9 @@ from typing import Any
 from azure.ai.projects.models import VersionRefIndicator
 from azure.core.exceptions import HttpResponseError
 
-from app.config import Settings
-from app.schemas.chat import ChatResponse
-from app.services.foundry_client import FoundryClientProvider
+from src.config import Settings
+from src.schemas.chat import ChatResponse
+from src.services.foundry_client import FoundryClientProvider
 
 logger = logging.getLogger(__name__)
 

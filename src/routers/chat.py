@@ -3,10 +3,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.dependencies import get_agent_service, get_request_id, verify_api_key
-from app.logging_config import request_id_ctx
-from app.schemas.chat import ChatRequest, ChatResponse, ErrorResponse
-from app.services.agent_service import AgentInvocationError, AgentService
+from src.dependencies import get_agent_service, get_request_id, verify_api_key
+from src.logging_config import request_id_ctx
+from src.schemas.chat import ChatRequest, ChatResponse, ErrorResponse
+from src.services.agent_service import AgentInvocationError, AgentService
 
 logger = logging.getLogger(__name__)
 

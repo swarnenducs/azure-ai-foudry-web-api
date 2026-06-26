@@ -1,0 +1,20 @@
+# Fabric Data Agent registry — prompt_id → agent_id (rule-based) + agent catalog (LLM routing)
+routing:
+  mode: rule  # rule | llm | hybrid
+
+agents:
+  sales-agent:
+    url: https://api.fabric.microsoft.com/v1/workspaces/<workspace-id>/aiskills/<skill-id>/aiassistant/openai
+    description: Sales, revenue, quarterly financial reports, and customer transactions.
+    response_class: SalesAgentResponse
+
+  inventory-agent:
+    url: https://api.fabric.microsoft.com/v1/workspaces/<workspace-id>/aiskills/<skill-id>/aiassistant/openai
+    description: Inventory levels, stock movements, warehouse operations, and supply chain data.
+    response_class: InventoryAgentResponse
+
+prompts:
+  sales-q1-report:
+    agent_id: sales-agent
+  inventory-stock-check:
+    agent_id: inventory-agent

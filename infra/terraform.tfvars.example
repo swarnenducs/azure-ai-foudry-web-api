@@ -1,0 +1,36 @@
+# Copy to terraform.tfvars and fill in values.
+# Do not commit terraform.tfvars if it contains secrets.
+
+location            = "eastus"
+resource_group_name = "rg-fabric-agent-api"
+app_name            = "fabric-agent-api-unique" # must be globally unique
+
+# SystemAssigned (default) or UserAssigned
+identity_type = "SystemAssigned"
+# user_assigned_identity_name = "mi-fabric-agent-api"
+
+service_plan_sku = "B1"
+
+# Foundry (required by src/config.py)
+azure_ai_project_endpoint = "https://<region>.api.azureml.ms/agents/v1.0/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.MachineLearningServices/workspaces/<ws>/projects/<project>"
+agent_name                = "tool-agent-demo-01"
+agent_version             = "1"
+
+# Fabric routing (optional overrides)
+# fabric_routing_mode    = "hybrid"
+# routing_llm_endpoint   = "https://<openai-resource>.openai.azure.com"
+# routing_llm_deployment = "gpt-4o-mini"
+
+# Optional API protection
+# api_key = "change-me"
+
+# Azure RBAC scopes (resource IDs from Portal → resource → Properties)
+# Foundry / AI Services account or project resource ID
+foundry_rbac_scope_id = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<account>"
+# Azure OpenAI resource ID (when using llm/hybrid)
+# openai_rbac_scope_id = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<openai-account>"
+
+tags = {
+  project = "fabric-agent-api"
+  env     = "production"
+}

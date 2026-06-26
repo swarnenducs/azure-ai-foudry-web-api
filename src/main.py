@@ -7,10 +7,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from app.config import get_settings
-from app.logging_config import configure_logging, request_id_ctx
-from app.routers import chat, health
-from app.services.foundry_client import FoundryClientProvider
+from src.config import get_settings
+from src.logging_config import configure_logging, request_id_ctx
+from src.routers import chat, fabric_data_agent, health
+from src.routing import AgentRegistry, build_agent_router
+from src.services.fabric_data_agent_provider import FabricDataAgentProvider
+from src.services.fabric_response_formatter import LangChainFabricResponseFormatter
+from src.services.foundry_client import FoundryClientProvider
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,13 @@ async def lifespan(app: FastAPI):
     app.state.foundry_provider = foundry_provider
     app.state.foundry_startup_error = None
 
+    fabric_provider = FabricDataAgentProvider(settings)
+    app.state.fabric_data_agent_provider = fabric_provider
+    app.state.fabric_data_agent_startup_error = None
+    app.state.agent_registry = None
+    app.state.agent_router = None
+    app.state.fabric_response_formatter = None
+
     try:
         await foundry_provider.initialize()
     except Exception as exc:
@@ -44,9 +54,27 @@ async def lifespan(app: FastAPI):
             "/health and /docs remain available"
         )
 
+    if settings.fabric_enabled:
+        try:
+            registry = AgentRegistry.load(settings)
+            router = build_agent_router(registry, settings)
+            app.state.agent_registry = registry
+            app.state.agent_router = router
+            app.state.fabric_response_formatter = LangChainFabricResponseFormatter(
+                settings
+            )
+            await fabric_provider.initialize()
+        except Exception as exc:
+            app.state.fabric_data_agent_startup_error = str(exc)
+            logger.exception(
+                "Fabric Data Agent routing failed to initialize; "
+                "/api/fabric routes will be unavailable"
+            )
+
     yield
 
     await foundry_provider.aclose()
+    await fabric_provider.aclose()
     logger.info("Application shutdown complete")
 
 
@@ -57,7 +85,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        description="API for invoking Azure AI Foundry agents.",
+        description="API for invoking Azure AI Foundry agents and Fabric Data Agents.",
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
@@ -120,6 +148,8 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(chat.router)
+    if settings.fabric_enabled:
+        app.include_router(fabric_data_agent.router)
     return app
 
 
