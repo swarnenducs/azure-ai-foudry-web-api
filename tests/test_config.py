@@ -50,3 +50,24 @@ def test_resolve_dotenv_path_skips_on_azure(
 ) -> None:
     monkeypatch.setenv("WEBSITE_SITE_NAME", "my-web-app")
     assert resolve_dotenv_path() is None
+
+
+def test_hyphenated_env_vars_are_accepted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.config import Settings, get_settings
+
+    monkeypatch.setenv("LOAD_DOTENV", "false")
+    monkeypatch.delenv("AZURE_AI_PROJECT_ENDPOINT", raising=False)
+    monkeypatch.delenv("AGENT_NAME", raising=False)
+    monkeypatch.setenv("AZURE-AI-PROJECT-ENDPOINT", "https://example.com/foundry")
+    monkeypatch.setenv("AGENT-NAME", "my-agent")
+
+    get_settings.cache_clear()
+    settings = get_settings()
+    assert settings.azure_ai_project_endpoint == "https://example.com/foundry"
+    assert settings.agent_name == "my-agent"
+
+    get_settings.cache_clear()
+    direct = Settings()
+    assert direct.azure_ai_project_endpoint == "https://example.com/foundry"

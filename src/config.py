@@ -2,8 +2,34 @@ from functools import lru_cache
 import os
 from pathlib import Path
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Azure Portal / some hosts use hyphens; pydantic expects underscores (Field aliases).
+_ENV_UNDERSCORE_ALIASES: dict[str, str] = {
+    "AZURE-AI-PROJECT-ENDPOINT": "AZURE_AI_PROJECT_ENDPOINT",
+    "AGENT-NAME": "AGENT_NAME",
+    "AGENT-VERSION": "AGENT_VERSION",
+    "AGENT-PROTOCOL": "AGENT_PROTOCOL",
+    "API-KEY": "API_KEY",
+    "FABRIC-TENANT-ID": "FABRIC_TENANT_ID",
+    "FABRIC-DATA-AGENT-URL": "FABRIC_DATA_AGENT_URL",
+    "FABRIC-QUERY-TIMEOUT": "FABRIC_QUERY_TIMEOUT",
+    "AGENT-REGISTRY-PATH": "AGENT_REGISTRY_PATH",
+    "FABRIC-ROUTING-MODE": "FABRIC_ROUTING_MODE",
+    "ROUTING-LLM-ENDPOINT": "ROUTING_LLM_ENDPOINT",
+    "ROUTING-LLM-DEPLOYMENT": "ROUTING_LLM_DEPLOYMENT",
+    "ROUTING-LLM-API-VERSION": "ROUTING_LLM_API_VERSION",
+    "LOG-LEVEL": "LOG_LEVEL",
+    "LOG-JSON": "LOG_JSON",
+}
+
+
+def _apply_env_alias_fallbacks() -> None:
+    """Map hyphenated OS env names to underscore aliases expected by Settings."""
+    for hyphen_key, underscore_key in _ENV_UNDERSCORE_ALIASES.items():
+        if hyphen_key in os.environ and not os.getenv(underscore_key):
+            os.environ[underscore_key] = os.environ[hyphen_key]
 
 
 def project_root() -> Path:
@@ -59,10 +85,16 @@ class Settings(BaseSettings):
 
     azure_ai_project_endpoint: str = Field(
         ...,
-        alias="AZURE_AI_PROJECT_ENDPOINT",
+        validation_alias=AliasChoices(
+            "AZURE_AI_PROJECT_ENDPOINT",
+            "AZURE-AI-PROJECT-ENDPOINT",
+        ),
         description="Azure AI Foundry project endpoint URL",
     )
-    agent_name: str = Field(..., alias="AGENT_NAME")
+    agent_name: str = Field(
+        ...,
+        validation_alias=AliasChoices("AGENT_NAME", "AGENT-NAME"),
+    )
     agent_version: str | None = Field(default="1", alias="AGENT_VERSION")
     agent_protocol: str = Field(default="responses", alias="AGENT_PROTOCOL")
 
@@ -145,6 +177,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    _apply_env_alias_fallbacks()
     dotenv = resolve_dotenv_path()
     if dotenv is not None:
         return Settings(_env_file=dotenv)
