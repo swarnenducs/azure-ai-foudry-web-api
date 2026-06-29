@@ -89,7 +89,7 @@ class FabricDataAgentProvider:
             )
 
         client = AsyncOpenAI(
-            api_key="",
+            api_key="fabric-bearer-token",
             base_url=data_agent_url,
             default_query={"api-version": "2024-05-01-preview"},
             default_headers={

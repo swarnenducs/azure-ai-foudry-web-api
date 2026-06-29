@@ -71,11 +71,13 @@ def _extract_json_object(raw_reply: str) -> dict | None:
     if match:
         candidates.insert(0, match.group(1))
 
+    decoder = json.JSONDecoder()
     for candidate in candidates:
-        if not candidate.startswith("{"):
+        start = candidate.find("{")
+        if start == -1:
             continue
         try:
-            parsed = json.loads(candidate)
+            parsed, _end = decoder.raw_decode(candidate[start:])
         except json.JSONDecodeError:
             continue
         if isinstance(parsed, dict):

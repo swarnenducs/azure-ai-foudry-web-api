@@ -1,4 +1,4 @@
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from src.schemas.fabric.base import FabricAgentResponseBase
 
@@ -27,6 +27,8 @@ class ContractExpiryAgentResponse(FabricAgentResponseBase):
         validation_alias=AliasChoices(
             "total_contract_expiring_next_quarter",
             "total_contract_expiring_next_quater",
+            "total_contracts_expiring_next_quarter",
+            "total_contracts_expiring_next_quater",
         ),
         description="Count of contracts expiring in the next quarter",
     )
@@ -35,3 +37,23 @@ class ContractExpiryAgentResponse(FabricAgentResponseBase):
         validation_alias=AliasChoices("agreements", "agrrements"),
         description="Contracts expiring in the next quarter",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_answer_from_count(cls, data: object) -> object:
+        if not isinstance(data, dict) or "answer" in data:
+            return data
+        payload = dict(data)
+        count = (
+            payload.get("total_contracts_expiring_next_quarter")
+            or payload.get("total_contract_expiring_next_quarter")
+            or payload.get("total_contract_expiring_next_quater")
+            or payload.get("total_contracts_expiring_next_quater")
+        )
+        if count is None and isinstance(payload.get("agreements"), list):
+            count = len(payload["agreements"])
+        if count is not None:
+            payload["answer"] = f"{count} contracts expire next quarter."
+        else:
+            payload["answer"] = "Contract expiry summary from Fabric."
+        return payload
