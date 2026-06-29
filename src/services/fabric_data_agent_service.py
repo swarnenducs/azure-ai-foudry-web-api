@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import time
 from typing import Any
@@ -143,6 +144,18 @@ class FabricDataAgentService:
             )
             reply = _extract_assistant_reply(messages)
 
+            logger.info(
+                "Fabric raw reply received",
+                extra={
+                    "agent_id": agent.id,
+                    "thread_id": thread["id"],
+                    "run_status": run.status,
+                    "fabric_reply_length": len(reply),
+                    "fabric_raw_reply": reply,
+                },
+            )
+            logger.info("Fabric raw reply body:\n%s", reply)
+
             try:
                 structured = await self._response_formatter.format(
                     raw_reply=reply,
@@ -176,7 +189,13 @@ class FabricDataAgentService:
                     "routing_method": result.routing_method,
                     "thread_name": result.thread_name,
                     "reply_length": len(result.reply),
+                    "response_class": result.response_class,
+                    "fabric_structured_data": result.data,
                 },
+            )
+            logger.info(
+                "Fabric structured data: %s",
+                json.dumps(result.data, ensure_ascii=False),
             )
             return result
         except FabricResponseFormatMismatchError:

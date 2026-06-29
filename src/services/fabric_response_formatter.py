@@ -37,6 +37,14 @@ class PydanticJsonFabricResponseFormatter:
         model_name = response_class.__name__
         payload = _extract_json_object(raw_reply)
         if payload is None:
+            logger.error(
+                "Fabric raw reply is not valid JSON",
+                extra={
+                    "agent_id": agent_id,
+                    "response_class": model_name,
+                    "fabric_raw_reply": raw_reply,
+                },
+            )
             raise FabricResponseFormatMismatchError(
                 f"Fabric response format mismatch: expected JSON for {model_name}",
                 agent_id=agent_id,
@@ -50,6 +58,16 @@ class PydanticJsonFabricResponseFormatter:
         try:
             result = response_class.model_validate(payload)
         except ValidationError as exc:
+            logger.error(
+                "Fabric JSON failed Pydantic validation",
+                extra={
+                    "agent_id": agent_id,
+                    "response_class": model_name,
+                    "fabric_raw_reply": raw_reply,
+                    "fabric_extracted_json": payload,
+                    "validation_errors": exc.errors(),
+                },
+            )
             raise FabricResponseFormatMismatchError(
                 f"Fabric response format mismatch: JSON does not match {model_name}",
                 agent_id=agent_id,
@@ -58,9 +76,14 @@ class PydanticJsonFabricResponseFormatter:
                 validation_errors=exc.errors(),
             ) from exc
 
-        logger.debug(
+        logger.info(
             "Validated Fabric JSON response",
-            extra={"response_class": model_name, "agent_id": agent_id},
+            extra={
+                "response_class": model_name,
+                "agent_id": agent_id,
+                "fabric_extracted_json": payload,
+                "fabric_structured_data": result.model_dump(),
+            },
         )
         return result
 

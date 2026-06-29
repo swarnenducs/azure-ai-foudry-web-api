@@ -14,7 +14,7 @@ agents:
     response_class: InventoryAgentResponse
 
   contract_expiry_p15:
-    url: https://api.fabric.microsoft.com/v1/workspaces/a0952a27-6688-4e82-8468-f629ea699ad9/dataagents/ac5aaed6-a500-4dd5-8279-d4b49f8cac57/aiassistant/openai
+    url: https://api.fabric.microsoft.com/v1/workspaces/<workspace-id>/dataagents/<dataagent-id>/aiassistant/openai
     description: Contracts expiring in the next quarter, agreement numbers, and descriptions.
     response_class: ContractExpiryAgentResponse
 
