@@ -2,6 +2,7 @@ import importlib
 from typing import TypeVar
 
 from src.schemas.fabric.base import FabricAgentResponseBase
+from src.schemas.fabric.contract_expiry import ContractExpiryAgentResponse
 from src.schemas.fabric.inventory import InventoryAgentResponse
 from src.schemas.fabric.sales import SalesAgentResponse
 
@@ -12,6 +13,7 @@ RESPONSE_MODELS: dict[str, type[FabricAgentResponseBase]] = {
     "FabricAgentResponseBase": FabricAgentResponseBase,
     "SalesAgentResponse": SalesAgentResponse,
     "InventoryAgentResponse": InventoryAgentResponse,
+    "ContractExpiryAgentResponse": ContractExpiryAgentResponse,
 }
 
 

@@ -2,27 +2,16 @@ import logging
 import os
 
 from azure.ai.projects.aio import AIProjectClient
-from azure.identity.aio import DefaultAzureCredential, ManagedIdentityCredential
 from openai import AsyncOpenAI
 
 from src.config import Settings
+from src.services.azure_credential import build_async_credential
 
 logger = logging.getLogger(__name__)
 
 
 def _build_credential(settings: Settings):
-    if settings.is_production or os.getenv("WEBSITE_SITE_NAME"):
-        client_id = os.getenv("AZURE_CLIENT_ID")
-        logger.info(
-            "Using managed identity credential",
-            extra={"user_assigned": bool(client_id)},
-        )
-        if client_id:
-            return ManagedIdentityCredential(client_id=client_id)
-        return ManagedIdentityCredential()
-
-    logger.info("Using DefaultAzureCredential for local development")
-    return DefaultAzureCredential()
+    return build_async_credential(settings)
 
 
 class FoundryClientProvider:

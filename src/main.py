@@ -11,6 +11,7 @@ from src.config import get_settings
 from src.logging_config import configure_logging, request_id_ctx
 from src.routers import chat, fabric_data_agent, health
 from src.routing import AgentRegistry, build_agent_router
+from src.services.azure_credential import describe_credential_choice
 from src.services.fabric_data_agent_provider import FabricDataAgentProvider
 from src.services.fabric_response_formatter import PydanticJsonFabricResponseFormatter
 from src.services.foundry_client import FoundryClientProvider
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI):
             "agent_version": settings.agent_version,
             "agent_protocol": settings.agent_protocol,
             "responses_endpoint": settings.agent_responses_endpoint,
+            **describe_credential_choice(settings),
         },
     )
 

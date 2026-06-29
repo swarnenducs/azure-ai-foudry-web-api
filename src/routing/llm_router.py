@@ -1,5 +1,4 @@
 import logging
-import os
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -8,6 +7,7 @@ from langchain_openai import AzureChatOpenAI
 from src.config import Settings
 from src.routing.protocols import AgentRouter, RoutingDecision
 from src.routing.registry import AgentRegistry
+from src.services.azure_credential import build_sync_credential
 
 logger = logging.getLogger(__name__)
 
@@ -20,17 +20,7 @@ Available agents:
 
 
 def _build_routing_credential(settings: Settings):
-    if settings.is_production or os.getenv("WEBSITE_SITE_NAME"):
-        client_id = os.getenv("AZURE_CLIENT_ID")
-        from azure.identity import ManagedIdentityCredential
-
-        if client_id:
-            return ManagedIdentityCredential(client_id=client_id)
-        return ManagedIdentityCredential()
-
-    from azure.identity import DefaultAzureCredential
-
-    return DefaultAzureCredential()
+    return build_sync_credential(settings)
 
 
 class LLMAgentRouter:
