@@ -1,12 +1,51 @@
 from functools import lru_cache
+import os
+from pathlib import Path
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def project_root() -> Path:
+    """Repository root (parent of ``src/``)."""
+    return Path(__file__).resolve().parent.parent
+
+
+def _parse_bool(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def should_load_dotenv() -> bool:
+    """Return whether to load values from a ``.env`` file.
+
+    - **Local:** load ``.env`` from the project root when the file exists.
+    - **Azure App Service:** use Application Settings (OS env) only.
+    - **Override:** set ``LOAD_DOTENV=true|false`` to force behavior.
+    """
+    explicit = os.getenv("LOAD_DOTENV")
+    if explicit is not None:
+        return _parse_bool(explicit)
+    if os.getenv("WEBSITE_SITE_NAME"):
+        return False
+    return True
+
+
+def resolve_dotenv_path() -> Path | None:
+    if not should_load_dotenv():
+        return None
+    dotenv = project_root() / ".env"
+    return dotenv if dotenv.is_file() else None
+
+
+def resolve_project_path(path: str) -> str:
+    candidate = Path(path)
+    if candidate.is_absolute():
+        return str(candidate)
+    return str((project_root() / candidate).resolve())
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -73,10 +112,15 @@ class Settings(BaseSettings):
         alias="ROUTING_LLM_API_VERSION",
     )
 
+    @field_validator("agent_registry_path", mode="before")
+    @classmethod
+    def _normalize_registry_path(cls, value: object) -> object:
+        if isinstance(value, str) and value:
+            return resolve_project_path(value)
+        return value
+
     @property
     def fabric_enabled(self) -> bool:
-        from pathlib import Path
-
         if Path(self.agent_registry_path).is_file():
             return True
         return bool(self.fabric_data_agent_url)
@@ -84,6 +128,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment.lower() in {"production", "prod"}
+
+    @property
+    def loads_dotenv(self) -> bool:
+        return resolve_dotenv_path() is not None
 
     @property
     def agent_openai_base_url(self) -> str:
@@ -97,4 +145,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    dotenv = resolve_dotenv_path()
+    if dotenv is not None:
+        return Settings(_env_file=dotenv)
     return Settings()

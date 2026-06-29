@@ -14,6 +14,15 @@ uv sync
 uv run uvicorn src.main:app --reload --port 8000
 ```
 
+**Configuration sources**
+
+| Where you run | Config source |
+|---------------|---------------|
+| **Local** | `.env` in the project root (see `.env.example`) |
+| **Azure App Service** | Application Settings (OS env). `.env` is not loaded when `WEBSITE_SITE_NAME` is set. |
+
+OS environment variables always override `.env` values. To force OS-only config locally: `LOAD_DOTENV=false`.
+
 Run tests (mocked Fabric agents, no live Azure calls):
 
 ```bash
