@@ -17,9 +17,15 @@ _ENV_UNDERSCORE_ALIASES: dict[str, str] = {
     "FABRIC-QUERY-TIMEOUT": "FABRIC_QUERY_TIMEOUT",
     "AGENT-REGISTRY-PATH": "AGENT_REGISTRY_PATH",
     "FABRIC-ROUTING-MODE": "FABRIC_ROUTING_MODE",
-    "ROUTING-LLM-ENDPOINT": "ROUTING_LLM_ENDPOINT",
-    "ROUTING-LLM-DEPLOYMENT": "ROUTING_LLM_DEPLOYMENT",
-    "ROUTING-LLM-API-VERSION": "ROUTING_LLM_API_VERSION",
+    "LLM-ENDPOINT": "LLM_ENDPOINT",
+    "LLM-DEPLOYMENT": "LLM_DEPLOYMENT",
+    "LLM-API-VERSION": "LLM_API_VERSION",
+    "ROUTING-LLM-ENDPOINT": "LLM_ENDPOINT",
+    "ROUTING-LLM-DEPLOYMENT": "LLM_DEPLOYMENT",
+    "ROUTING-LLM-API-VERSION": "LLM_API_VERSION",
+    "FABRIC-FORMATTER-LLM-ENDPOINT": "LLM_ENDPOINT",
+    "FABRIC-FORMATTER-LLM-DEPLOYMENT": "LLM_DEPLOYMENT",
+    "FABRIC-FORMATTER-LLM-API-VERSION": "LLM_API_VERSION",
     "LOG-LEVEL": "LOG_LEVEL",
     "LOG-JSON": "LOG_JSON",
 }
@@ -129,19 +135,31 @@ class Settings(BaseSettings):
         alias="FABRIC_ROUTING_MODE",
         description="Override routing mode: rule, llm, or hybrid",
     )
-    routing_llm_endpoint: str | None = Field(
+    llm_endpoint: str | None = Field(
         default=None,
-        alias="ROUTING_LLM_ENDPOINT",
-        description="Azure OpenAI endpoint for LLM-based agent routing",
+        validation_alias=AliasChoices(
+            "LLM_ENDPOINT",
+            "ROUTING_LLM_ENDPOINT",
+            "FABRIC_FORMATTER_LLM_ENDPOINT",
+        ),
+        description="Azure OpenAI endpoint for LangChain (routing, structured output, etc.)",
     )
-    routing_llm_deployment: str | None = Field(
+    llm_deployment: str | None = Field(
         default=None,
-        alias="ROUTING_LLM_DEPLOYMENT",
-        description="Azure OpenAI deployment name for routing LLM",
+        validation_alias=AliasChoices(
+            "LLM_DEPLOYMENT",
+            "ROUTING_LLM_DEPLOYMENT",
+            "FABRIC_FORMATTER_LLM_DEPLOYMENT",
+        ),
+        description="Azure OpenAI deployment name",
     )
-    routing_llm_api_version: str = Field(
+    llm_api_version: str = Field(
         default="2024-10-21",
-        alias="ROUTING_LLM_API_VERSION",
+        validation_alias=AliasChoices(
+            "LLM_API_VERSION",
+            "ROUTING_LLM_API_VERSION",
+            "FABRIC_FORMATTER_LLM_API_VERSION",
+        ),
     )
 
     @field_validator("agent_registry_path", mode="before")

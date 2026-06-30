@@ -13,7 +13,10 @@ from src.routers import chat, fabric_data_agent, health
 from src.routing import AgentRegistry, build_agent_router
 from src.services.azure_credential import describe_credential_choice
 from src.services.fabric_data_agent_provider import FabricDataAgentProvider
-from src.services.fabric_response_formatter import PydanticJsonFabricResponseFormatter
+from src.services.fabric_response_formatter import (
+    FabricResponseFormatter,
+    build_fabric_response_formatter,
+)
 from src.services.foundry_client import FoundryClientProvider
 
 logger = logging.getLogger(__name__)
@@ -62,7 +65,7 @@ async def lifespan(app: FastAPI):
             router = build_agent_router(registry, settings)
             app.state.agent_registry = registry
             app.state.agent_router = router
-            app.state.fabric_response_formatter = PydanticJsonFabricResponseFormatter()
+            app.state.fabric_response_formatter = build_fabric_response_formatter(settings)
             await fabric_provider.initialize()
         except Exception as exc:
             app.state.fabric_data_agent_startup_error = str(exc)

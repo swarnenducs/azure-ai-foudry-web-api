@@ -14,7 +14,7 @@ from src.services.fabric_errors import (
     FabricResponseFormatMismatchError,
     is_fabric_upstream_not_found,
 )
-from src.services.fabric_response_formatter import PydanticJsonFabricResponseFormatter
+from src.services.fabric_response_formatter import FabricResponseFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class FabricDataAgentService:
         provider: FabricDataAgentProvider,
         registry: AgentRegistry,
         router: AgentRouter,
-        response_formatter: PydanticJsonFabricResponseFormatter,
+        response_formatter: FabricResponseFormatter,
     ) -> None:
         self._settings = settings
         self._provider = provider

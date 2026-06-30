@@ -59,7 +59,7 @@ Example request:
 }
 ```
 
-For `llm` / `hybrid` modes, set `ROUTING_LLM_ENDPOINT` and `ROUTING_LLM_DEPLOYMENT`.
+For `llm` / `hybrid` modes and LangChain structured output, set `LLM_ENDPOINT` and `LLM_DEPLOYMENT`.
 
 **Docs:** [Fabric-flow.md](Fabric-flow.md) (architecture & adding agents) · [test-fabric.md](test-fabric.md) (testing guide) · [infra/README.md](infra/README.md) (Terraform) · [GIT-PRACTICES.md](GIT-PRACTICES.md) (Git workflow & merge process)
 
@@ -90,8 +90,9 @@ bash startup.sh
 | `AGENT_VERSION` | `1` |
 | `AGENT_REGISTRY_PATH` | `config/agent_registry.yaml` |
 | `FABRIC_ROUTING_MODE` | `rule`, `llm`, or `hybrid` (overrides YAML) |
-| `ROUTING_LLM_ENDPOINT` | Azure OpenAI endpoint for LLM routing |
-| `ROUTING_LLM_DEPLOYMENT` | deployment name for routing LLM |
+| `LLM_ENDPOINT` | Azure OpenAI endpoint (routing, structured output) |
+| `LLM_DEPLOYMENT` | deployment name |
+| `LLM_API_VERSION` | API version (default `2024-10-21`) |
 | `FABRIC_DATA_AGENT_URL` | legacy single-agent fallback |
 | `FABRIC_QUERY_TIMEOUT` | `120` |
 

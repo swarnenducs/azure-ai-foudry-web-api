@@ -20,7 +20,10 @@ from src.routing.rule_router import RuleBasedAgentRouter
 from src.services.azure_credential import describe_credential_choice
 from src.services.fabric_data_agent_provider import FabricDataAgentProvider
 from src.services.fabric_data_agent_service import FabricDataAgentService
-from src.services.fabric_response_formatter import PydanticJsonFabricResponseFormatter
+from src.services.fabric_response_formatter import (
+    PydanticJsonFabricResponseFormatter,
+    build_fabric_response_formatter,
+)
 
 
 async def run(*, prompt_id: str, message: str) -> int:
@@ -43,7 +46,7 @@ async def run(*, prompt_id: str, message: str) -> int:
         provider=provider,
         registry=registry,
         router=RuleBasedAgentRouter(registry),
-        response_formatter=PydanticJsonFabricResponseFormatter(),
+        response_formatter=build_fabric_response_formatter(settings),
     )
 
     print(f"\nInvoking prompt_id={prompt_id!r} ...")

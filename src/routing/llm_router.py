@@ -30,9 +30,9 @@ class LLMAgentRouter:
         self._chain = self._build_chain(settings)
 
     def _build_chain(self, settings: Settings):
-        if not settings.routing_llm_endpoint or not settings.routing_llm_deployment:
+        if not settings.llm_endpoint or not settings.llm_deployment:
             raise ValueError(
-                "ROUTING_LLM_ENDPOINT and ROUTING_LLM_DEPLOYMENT are required for LLM routing"
+                "LLM_ENDPOINT and LLM_DEPLOYMENT are required for LLM routing"
             )
 
         credential = _build_routing_credential(settings)
@@ -43,9 +43,9 @@ class LLMAgentRouter:
             ).token
 
         llm = AzureChatOpenAI(
-            azure_endpoint=settings.routing_llm_endpoint.rstrip("/"),
-            azure_deployment=settings.routing_llm_deployment,
-            api_version=settings.routing_llm_api_version,
+            azure_endpoint=settings.llm_endpoint.rstrip("/"),
+            azure_deployment=settings.llm_deployment,
+            api_version=settings.llm_api_version,
             azure_ad_token_provider=token_provider,
             temperature=0,
         )

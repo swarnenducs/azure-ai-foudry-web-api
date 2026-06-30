@@ -86,19 +86,19 @@ variable "fabric_routing_mode" {
 }
 
 variable "routing_llm_endpoint" {
-  description = "ROUTING_LLM_ENDPOINT — Azure OpenAI endpoint for LLM/hybrid routing."
+  description = "LLM_ENDPOINT — Azure OpenAI endpoint (routing, structured output, etc.)."
   type        = string
   default     = null
 }
 
 variable "routing_llm_deployment" {
-  description = "ROUTING_LLM_DEPLOYMENT."
+  description = "LLM_DEPLOYMENT."
   type        = string
   default     = null
 }
 
 variable "routing_llm_api_version" {
-  description = "ROUTING_LLM_API_VERSION."
+  description = "LLM_API_VERSION."
   type        = string
   default     = "2024-10-21"
 }
