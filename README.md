@@ -78,6 +78,14 @@ Or use the script:
 bash startup.sh
 ```
 
+- **Dependencies:** Azure Oryx installs from `requirements.txt`. After changing `pyproject.toml`, regenerate so LangChain packages deploy:
+
+```bash
+uv export --no-dev --no-hashes --no-emit-project -o requirements.txt
+```
+
+Fabric LLM routing and structured output need `langchain-openai`, `langchain-core`, `tiktoken`, and their transitive deps in that file.
+
 - **App settings:**
 
 | Name | Example |
