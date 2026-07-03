@@ -31,6 +31,14 @@ def fabric_client(agent_registry, monkeypatch: pytest.MonkeyPatch) -> TestClient
     mock_service = AsyncMock()
     mock_service.ask = AsyncMock(
         return_value=FabricDataAgentResponse(
+            fabric_raw_reply='{"answer": "Revenue grew", "total_revenue": 1200000.0, "quarter": "Q1 2025", "currency": "USD"}',
+            fabric_json={
+                "answer": "Revenue grew",
+                "total_revenue": 1200000.0,
+                "quarter": "Q1 2025",
+                "currency": "USD",
+            },
+            data_source="fabric_json",
             reply='{"answer": "Revenue grew"}',
             agent_id="sales-agent",
             response_class="SalesAgentResponse",
@@ -66,6 +74,8 @@ def test_fabric_chat_endpoint_returns_structured_response(fabric_client: TestCli
     body = response.json()
     assert body["agent_id"] == "sales-agent"
     assert body["response_class"] == "SalesAgentResponse"
+    assert body["fabric_raw_reply"]
+    assert body["fabric_json"]["total_revenue"] == 1200000.0
     assert body["data"]["total_revenue"] == 1200000.0
     assert body["prompt_id"] == "sales-q1-report"
 

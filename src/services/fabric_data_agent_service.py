@@ -157,7 +157,7 @@ class FabricDataAgentService:
             logger.info("Fabric raw reply body:\n%s", reply)
 
             try:
-                structured = await self._response_formatter.format(
+                validated = await self._response_formatter.format(
                     raw_reply=reply,
                     response_class=agent.response_class,
                     agent_id=agent.id,
@@ -174,11 +174,14 @@ class FabricDataAgentService:
                 )
 
             result = FabricDataAgentResponse(
+                fabric_raw_reply=reply,
+                fabric_json=validated.extracted_json,
+                data_source=validated.data_source,
                 reply=reply,
                 agent_id=agent.id,
                 response_class=agent.response_class.__name__,
                 routing_method=decision.method,
-                data=structured.model_dump(),
+                data=validated.structured.model_dump(),
                 prompt_id=prompt_id,
                 thread_name=thread_name,
             )

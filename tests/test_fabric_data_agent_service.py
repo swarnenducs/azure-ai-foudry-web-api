@@ -15,7 +15,7 @@ from src.services.fabric_errors import (
     FabricNotFoundError,
     FabricResponseFormatMismatchError,
 )
-from src.services.fabric_response_formatter import PydanticJsonFabricResponseFormatter
+from src.services.fabric_response_formatter import FabricResponseProcessor
 from tests.support.fabric_mocks import build_mock_fabric_provider, build_mock_openai_client
 
 _MOCK_FABRIC_JSON_REPLY = (
@@ -64,7 +64,7 @@ def fabric_service(agent_registry, mock_fabric_provider) -> FabricDataAgentServi
         provider=mock_fabric_provider,
         registry=agent_registry,
         router=router,
-        response_formatter=PydanticJsonFabricResponseFormatter(),
+        response_formatter=FabricResponseProcessor(Settings()),
     )
 
 
@@ -82,7 +82,10 @@ async def test_ask_with_prompt_id_parses_fabric_json_into_pydantic_model(
     assert result.agent_id == "sales-agent"
     assert result.routing_method == "rule"
     assert result.response_class == "SalesAgentResponse"
+    assert result.fabric_raw_reply == _MOCK_FABRIC_JSON_REPLY
     assert result.reply == _MOCK_FABRIC_JSON_REPLY
+    assert result.data_source == "fabric_json"
+    assert result.fabric_json["total_revenue"] == 1200000.0
     assert result.data["total_revenue"] == 1200000.0
     assert result.data["quarter"] == "Q1 2025"
     assert result.data["answer"] == "Revenue grew"
@@ -181,56 +184,54 @@ async def test_ask_raises_on_empty_message(fabric_service) -> None:
 
 @pytest.mark.asyncio
 async def test_json_formatter_validates_fabric_json() -> None:
-    formatter = PydanticJsonFabricResponseFormatter()
-    structured = await formatter.format(
+    formatter = FabricResponseProcessor(Settings())
+    result = await formatter.format(
         raw_reply='{"answer": "OK", "total_revenue": 99.5, "quarter": "Q2"}',
         response_class=SalesAgentResponse,
         agent_id="sales-agent",
     )
-    assert structured.total_revenue == 99.5
-    assert structured.quarter == "Q2"
+    assert result.structured.total_revenue == 99.5
+    assert result.structured.quarter == "Q2"
+    assert result.extracted_json["total_revenue"] == 99.5
+    assert result.data_source == "fabric_json"
 
 
 @pytest.mark.asyncio
-async def test_json_formatter_raises_format_mismatch_for_non_json() -> None:
-    formatter = PydanticJsonFabricResponseFormatter()
-    with pytest.raises(FabricResponseFormatMismatchError) as exc_info:
-        await formatter.format(
-            raw_reply="Plain text from Fabric",
-            response_class=SalesAgentResponse,
-            agent_id="sales-agent",
-        )
-    err = exc_info.value
-    assert err.reason == "invalid_json"
-    assert err.response_class == "SalesAgentResponse"
-    assert err.agent_id == "sales-agent"
+async def test_json_formatter_raises_format_mismatch_for_non_json_without_llm() -> None:
+    processor = FabricResponseProcessor(Settings())
+    result = await processor.format(
+        raw_reply="Plain text from Fabric",
+        response_class=SalesAgentResponse,
+        agent_id="sales-agent",
+    )
+    assert result.data_source == "fabric_default"
+    assert result.structured.answer == "Plain text from Fabric"
 
 
 @pytest.mark.asyncio
-async def test_json_formatter_raises_schema_mismatch() -> None:
-    formatter = PydanticJsonFabricResponseFormatter()
-    with pytest.raises(FabricResponseFormatMismatchError) as exc_info:
-        await formatter.format(
-            raw_reply='{"answer": "OK", "total_revenue": "not-a-number"}',
-            response_class=SalesAgentResponse,
-            agent_id="sales-agent",
-        )
-    err = exc_info.value
-    assert err.reason == "schema_mismatch"
-    assert err.validation_errors
+async def test_json_formatter_returns_default_on_schema_mismatch() -> None:
+    processor = FabricResponseProcessor(Settings())
+    result = await processor.format(
+        raw_reply='{"answer": "OK", "total_revenue": "not-a-number"}',
+        response_class=SalesAgentResponse,
+        agent_id="sales-agent",
+    )
+    assert result.data_source == "fabric_default"
+    assert result.structured.answer == "OK"
 
 
 @pytest.mark.asyncio
-async def test_ask_raises_format_mismatch_when_fabric_returns_non_json(
+async def test_ask_returns_default_when_fabric_returns_non_json(
     fabric_service,
     mock_fabric_provider,
 ) -> None:
     mock_fabric_provider.get_openai_client = AsyncMock(
         side_effect=lambda url: build_mock_openai_client("Not JSON")
     )
-    with pytest.raises(FabricResponseFormatMismatchError) as exc_info:
-        await fabric_service.ask(
-            message="What were Q1 sales?",
-            prompt_id="sales-q1-report",
-        )
-    assert exc_info.value.reason == "invalid_json"
+    result = await fabric_service.ask(
+        message="What were Q1 sales?",
+        prompt_id="sales-q1-report",
+    )
+    assert result.data_source == "fabric_default"
+    assert result.reply == "Not JSON"
+    assert result.data["answer"] == "Not JSON"

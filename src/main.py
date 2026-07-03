@@ -157,3 +157,34 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def main() -> None:
+    """Run the API with uvicorn (``python -m src.main``)."""
+    import uvicorn
+
+    settings = get_settings()
+    dev = settings.environment.lower() in {"development", "dev", "local"}
+    host = os.getenv("HOST", "127.0.0.1" if dev else "0.0.0.0")
+    port = int(os.getenv("PORT") or os.getenv("WEBSITES_PORT") or "8000")
+    reload = _env_bool("RELOAD", default=dev)
+
+    uvicorn.run(
+        "src.main:app",
+        host=host,
+        port=port,
+        reload=reload,
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+    )
+
+
+if __name__ == "__main__":
+    main()

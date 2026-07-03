@@ -13,15 +13,19 @@ class FabricResponseFormatMismatchError(Exception):
         response_class: str,
         reason: str,
         validation_errors: list[dict] | None = None,
+        fabric_raw_reply: str | None = None,
+        fabric_json: dict | None = None,
     ) -> None:
         super().__init__(message)
         self.agent_id = agent_id
         self.response_class = response_class
         self.reason = reason
         self.validation_errors = validation_errors or []
+        self.fabric_raw_reply = fabric_raw_reply
+        self.fabric_json = fabric_json
 
     def to_detail(self) -> dict:
-        return {
+        detail = {
             "error": "fabric_response_format_mismatch",
             "message": str(self),
             "agent_id": self.agent_id,
@@ -29,6 +33,11 @@ class FabricResponseFormatMismatchError(Exception):
             "reason": self.reason,
             "validation_errors": self.validation_errors,
         }
+        if self.fabric_raw_reply is not None:
+            detail["fabric_raw_reply"] = self.fabric_raw_reply
+        if self.fabric_json is not None:
+            detail["fabric_json"] = self.fabric_json
+        return detail
 
 
 class FabricNotFoundError(Exception):

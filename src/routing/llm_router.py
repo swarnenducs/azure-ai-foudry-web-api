@@ -7,7 +7,7 @@ from langchain_openai import AzureChatOpenAI
 from src.config import Settings
 from src.routing.protocols import AgentRouter, RoutingDecision
 from src.routing.registry import AgentRegistry
-from src.services.azure_credential import build_sync_credential
+from src.services.langchain_llm import build_langchain_chat_model, is_foundry_v1_llm_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,8 @@ Available agents:
 
 
 def _build_routing_credential(settings: Settings):
+    from src.services.azure_credential import build_sync_credential
+
     return build_sync_credential(settings)
 
 
@@ -37,18 +39,21 @@ class LLMAgentRouter:
 
         credential = _build_routing_credential(settings)
 
-        def token_provider() -> str:
-            return credential.get_token(
-                "https://cognitiveservices.azure.com/.default"
-            ).token
+        if is_foundry_v1_llm_endpoint(settings.llm_endpoint):
+            llm = build_langchain_chat_model(settings)
+        else:
+            def token_provider() -> str:
+                return credential.get_token(
+                    "https://cognitiveservices.azure.com/.default"
+                ).token
 
-        llm = AzureChatOpenAI(
-            azure_endpoint=settings.llm_endpoint.rstrip("/"),
-            azure_deployment=settings.llm_deployment,
-            api_version=settings.llm_api_version,
-            azure_ad_token_provider=token_provider,
-            temperature=0,
-        )
+            llm = AzureChatOpenAI(
+                azure_endpoint=settings.llm_endpoint.rstrip("/"),
+                azure_deployment=settings.llm_deployment,
+                api_version=settings.llm_api_version,
+                azure_ad_token_provider=token_provider,
+                temperature=0,
+            )
         prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", _SYSTEM_PROMPT),

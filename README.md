@@ -11,8 +11,11 @@ cp .env.example .env
 # edit .env with your Foundry project endpoint and agent name
 
 uv sync
-uv run uvicorn src.main:app --reload --port 8000
+uv run python -m src.main
+# or: uv run uvicorn src.main:app --reload --port 8000
 ```
+
+Local dev defaults: `HOST=127.0.0.1`, `PORT=8000`, `RELOAD=true` when `ENVIRONMENT=development`. Override with env vars (e.g. `RELOAD=false`, `HOST=0.0.0.0`).
 
 **Configuration sources**
 
@@ -59,7 +62,7 @@ Example request:
 }
 ```
 
-For `llm` / `hybrid` modes and LangChain structured output, set `LLM_ENDPOINT` and `LLM_DEPLOYMENT`.
+For `llm` / `hybrid` routing modes, set `LLM_ENDPOINT` and `LLM_DEPLOYMENT`. When Fabric returns JSON, it is validated as-is (`data_source=fabric_json`). When Fabric returns plain text only, LangChain extracts structure as a fallback (`data_source=langchain_extraction`) if LLM settings are configured.
 
 **Docs:** [Fabric-flow.md](Fabric-flow.md) (architecture & adding agents) · [test-fabric.md](test-fabric.md) (testing guide) · [infra/README.md](infra/README.md) (Terraform) · [GIT-PRACTICES.md](GIT-PRACTICES.md) (Git workflow & merge process)
 
